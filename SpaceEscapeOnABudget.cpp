@@ -28,8 +28,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     // TODO: Place code here.
 
     // Initialize global strings
-    LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-    LoadStringW(hInstance, IDC_SPACEESCAPEONABUDGET, szWindowClass, MAX_LOADSTRING);
+    LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
+    LoadString(hInstance, IDC_SPACEESCAPEONABUDGET, szWindowClass, MAX_LOADSTRING);
     MyRegisterClass(hInstance);
 
     // Perform application initialization:
@@ -102,8 +102,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    GetWindowRect(desktop, &screen);
 
-   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_THICKFRAME | WS_MAXIMIZEBOX | WS_SYSMENU,
-      (screen.right - width) / 2, (screen.bottom - height) / 2, width, height, NULL, NULL, hInstance, NULL);
+   HWND hWnd = CreateWindowEx(WS_EX_APPWINDOW | WS_EX_CLIENTEDGE | WS_EX_TOPMOST, szWindowClass, szTitle, WS_SIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU,
+       (screen.right - width) / 2, (screen.bottom - height) / 2, width, height, NULL, NULL, hInstance, NULL);
 
    if (!hWnd)
    {
@@ -132,7 +132,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
     {
-        SetTimer(hWnd, NULL, 20, NULL);
+        SetTimer(hWnd, 0, 20, NULL);
+        Alive = TRUE;
         break;
     }
     case WM_MOUSEMOVE:
@@ -189,15 +190,43 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         UpdatePlayer();
 
-        if (rand() % 25 == 0)
+        if (rand() % (height / 50) == 0)
         {
-            int size = rand() % 50 + 50;
+            switch (rand() % 2)
+            {
+            case 0:
+            {
+                int size = rand() % 50 + 50;
 
-            Enemies.push_back((Enemy*) new Astroid({ width, rand() % height }, { size, size }));
+                Enemies.push_back((Enemy*) new Astroid({ width, rand() % height }, { size, size }));
+                break;
+            }
+            case 1:
+            {
+                Enemies.push_back((Enemy*) new Saucer({ width, rand() % height }, { 150, 75 }));
+                break;
+            }
+            }
         }
 
         for (int i = Enemies.size() - 1; i >= 0; i--)
+        {
             Enemies[i]->Update(i);
+
+            if (Enemies[i]->CheckCollision())
+            {
+                KillTimer(hWnd, 0);
+
+                Alive = FALSE;
+            }
+        }
+
+        for (int i = Destroy.size() - 1; i >= 0; i--)
+        {
+            delete Enemies[Destroy[i]];
+            Enemies.erase(Enemies.begin() + Destroy[i]);
+        }
+        Destroy.clear();
 
         RePaint();
         break;
@@ -215,6 +244,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         DrawPlayer(hdc);
         
         EndPaint(hWnd, &ps);
+        break;
+    }
+    case WM_SETFOCUS:
+    {
+        if (Alive)
+            SetTimer(hWnd, 0, 20, NULL);
+        break;
+    }
+    case WM_KILLFOCUS:
+    {
+        KillTimer(hWnd, 0);
         break;
     }
     case WM_DESTROY:
